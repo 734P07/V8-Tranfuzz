@@ -115,9 +115,36 @@ void TraceHeuristicOptimizationDisallowed(Tagged<JSFunction> function) {
   }
 }
 
+// Hàm chuyển đổi Enum CodeKind của V8 sang số Tier (0, 1, 2, 3)
+static int GetTierNumber(std::optional<CodeKind> kind) {
+  if (!kind.has_value()) return 0; // 0 thường là Interpreter
+  
+  switch (kind.value()) {
+    case CodeKind::TURBOFAN_JS: return 3;
+    case CodeKind::MAGLEV:   return 2;
+    case CodeKind::BASELINE: return 1;
+    default:                 return 0;
+  }
+}
+
 void TraceRecompile(Isolate* isolate, Tagged<JSFunction> function,
                     OptimizationDecision d) {
   if (v8_flags.trace_opt) {
+    // ===== PATCH HERE ===== hot and stable opt to maglev/turbo
+
+    // 1. Tính toán mã feedback 5 chữ số
+    // Lấy tier hiện tại
+    int from_tier = GetTierNumber(function->GetActiveTier(isolate));
+    int to_tier = GetTierNumber(d.code_kind);
+    int direction = 1; // 1 = Tier-up
+    int reason_code = static_cast<int>(d.optimization_reason) % 100;
+    
+    int feedback = (from_tier * 10000) + (to_tier * 1000) + (direction * 100) + reason_code;
+    
+    // 2. Gửi qua Fuzzilli
+    dprintf(103, "%05d\n", feedback);
+    // ==================
+
     CodeTracer::Scope scope(isolate->GetCodeTracer());
     PrintF(scope.file(), "[marking ");
     ShortPrint(function, scope.file());
@@ -130,9 +157,22 @@ void TraceRecompile(Isolate* isolate, Tagged<JSFunction> function,
 
 }  // namespace
 
-void TraceManualRecompile(Tagged<JSFunction> function, CodeKind code_kind,
+void TraceManualRecompile(Isolate* isolate, Tagged<JSFunction> function, CodeKind code_kind,
                           ConcurrencyMode concurrency_mode) {
   if (v8_flags.trace_opt) {
+    // ===== PATCH HERE ===== manually opt to maglev/turbo
+    // 1. Tính toán mã feedback 5 chữ số
+    int from_tier = GetTierNumber(function->GetActiveTier(isolate));
+    int to_tier = GetTierNumber(code_kind);
+    int direction = 1; // 1 = Tier-up
+    int reason_code = 99; // 99 = Đánh dấu riêng cho Manual Optimization
+    
+    int feedback = (from_tier * 10000) + (to_tier * 1000) + (direction * 100) + reason_code;
+    
+    // 2. Gửi qua Fuzzilli
+    dprintf(103, "%05d\n", feedback);
+    // ===================
+
     PrintF("[manually marking ");
     ShortPrint(function);
     PrintF(" for optimization to %s, %s]\n", CodeKindToString(code_kind),

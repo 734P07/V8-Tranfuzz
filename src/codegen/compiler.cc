@@ -162,6 +162,18 @@ class CompilerTracer : public AllStatic {
            function->DebugNameCStr().get(), osr_offset.ToInt(), ToString(mode));
   }
 
+  // Hàm chuyển đổi Enum CodeKind của V8 sang số Tier (0, 1, 2, 3)
+  static int GetTierNumber(std::optional<CodeKind> kind) {
+    if (!kind.has_value()) return 0; // 0 thường là Interpreter
+    
+    switch (kind.value()) {
+      case CodeKind::TURBOFAN_JS: return 3;
+      case CodeKind::MAGLEV:   return 2;
+      case CodeKind::BASELINE: return 1;
+      default:                 return 0;
+    }
+  }
+
   static void TraceFinishTurbofanCompile(Isolate* isolate,
                                          OptimizedCompilationInfo* info,
                                          double ms_creategraph,
@@ -169,6 +181,24 @@ class CompilerTracer : public AllStatic {
                                          double ms_codegen) {
     DCHECK(v8_flags.trace_opt);
     DCHECK(info->IsOptimizing());
+    // ===== PATCH HERE ===== turbo osr
+    // 1. Lấy JSFunction từ object info
+    Handle<JSFunction> function = info->closure();
+    
+    // 2. Tính toán mã feedback 5 chữ số
+    int from_tier = GetTierNumber(function->GetActiveTier(isolate));
+    int to_tier = 3; // 3 = Turbofan
+    int direction = 1; // 1 = Tier-up
+    
+    // Nếu là OSR thì gán mã 05, ngược lại gán 01 (bình thường)
+    int reason_code = info->is_osr() ? 5 : 1; 
+    
+    int feedback = (from_tier * 10000) + (to_tier * 1000) + (direction * 100) + reason_code;
+    
+    // 3. Gửi cho Fuzzilli
+    dprintf(103, "%05d\n", feedback);
+    // ===============
+
     CodeTracer::Scope scope(isolate->GetCodeTracer());
     PrintTracePrefix(scope, "completed compiling", info);
     if (info->is_osr()) PrintF(scope.file(), " OSR");
@@ -192,6 +222,21 @@ class CompilerTracer : public AllStatic {
                                        bool osr, double ms_prepare,
                                        double ms_execute, double ms_finalize) {
     if (!v8_flags.trace_opt) return;
+    // ===== PATCH HERE ===== maglev osr
+    // 1. Tính toán mã feedback 5 chữ số
+    int from_tier = GetTierNumber(function->GetActiveTier(isolate));
+    int to_tier = 2; // 2 = Maglev
+    int direction = 1; // 1 = Tier-up
+    
+    // Nếu tham số osr là true thì gán mã 05, ngược lại 01
+    int reason_code = osr ? 5 : 1;
+    
+    int feedback = (from_tier * 10000) + (to_tier * 1000) + (direction * 100) + reason_code;
+    
+    // 2. Bắn qua Fuzzilli
+    dprintf(103, "%05d\n", feedback);
+    // ===============
+
     CodeTracer::Scope scope(isolate->GetCodeTracer());
     PrintTracePrefix(scope, "completed compiling", function, CodeKind::MAGLEV);
     if (osr) PrintF(scope.file(), " OSR");

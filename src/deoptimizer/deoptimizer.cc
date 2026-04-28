@@ -846,9 +846,47 @@ const char* CodeValidityToString(Deoptimizer::CodeValidity code_validity) {
 
 }  // namespace
 
+// Hàm chuyển đổi Enum CodeKind của V8 sang số Tier (0, 1, 2, 3)
+int GetTierNumber(CodeKind kind) {
+  switch (kind) {
+    case CodeKind::INTERPRETED_FUNCTION: return 0; // Ignition
+    case CodeKind::BASELINE: return 1;             // Sparkplug
+    case CodeKind::MAGLEV: return 2;               // Maglev
+    case CodeKind::TURBOFAN_JS: return 3;          // Turbofan
+    default: return 0;
+  }
+}
+
 void Deoptimizer::TraceDeoptBegin(int optimization_id,
                                   BytecodeOffset bytecode_offset) {
   DCHECK(tracing_enabled());
+
+  // ===== PATCH HERE ===== deopt
+  int a = 0;
+  int b = 0;
+  if (!compiled_code_.is_null()) {
+    CodeKind k = compiled_code_->kind();
+    if (k == CodeKind::TURBOFAN_JS) a = 3;
+    else if (k == CodeKind::MAGLEV) a = 2;
+    else if (k == CodeKind::BASELINE) a = 1;
+    
+    if (!function_.is_null() && function_->shared()->HasBaselineCode()) b = 1;
+  }
+
+  // c: Loại hành động (2=Eager, 3=Lazy)
+  int c = (deopt_kind_ == DeoptimizeKind::kEager) ? 2 : 3;
+
+  // de: Lý do chi tiết (Lấy trực tiếp từ hệ thống Deopt của V8)
+  // DeoptimizeReason là một enum, ép kiểu sang int để lấy mã số lý do
+  int de = static_cast<int>(GetDeoptInfo().deopt_reason);
+  if (de > 99) de = 99; // Đảm bảo không quá 2 chữ số
+
+  int feedback = (a * 10000) + (b * 1000) + (c * 100) + de;
+
+  // Bắn feedback hoàn chỉnh về TranFuzz
+  dprintf(103, "%05d\n", feedback);
+  // ============
+
   FILE* file = trace_scope()->file();
   PrintF(file,
          "[bailout (kind: %s, reason: %s): begin. "

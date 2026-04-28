@@ -884,7 +884,7 @@ void Deoptimizer::TraceDeoptBegin(int optimization_id,
   int feedback = (a * 10000) + (b * 1000) + (c * 100) + de;
 
   // Bắn feedback hoàn chỉnh về TranFuzz
-  dprintf(103, "%05d\n", feedback);
+  dprintf(103, "[TIER]%05d\n", feedback);
   // ============
 
   FILE* file = trace_scope()->file();

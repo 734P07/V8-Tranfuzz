@@ -142,7 +142,7 @@ void TraceRecompile(Isolate* isolate, Tagged<JSFunction> function,
     int feedback = (from_tier * 10000) + (to_tier * 1000) + (direction * 100) + reason_code;
     
     // 2. Gửi qua Fuzzilli
-    dprintf(103, "%05d\n", feedback);
+    dprintf(103, "[TIER]%05d\n", feedback);
     // ==================
 
     CodeTracer::Scope scope(isolate->GetCodeTracer());
@@ -170,7 +170,7 @@ void TraceManualRecompile(Isolate* isolate, Tagged<JSFunction> function, CodeKin
     int feedback = (from_tier * 10000) + (to_tier * 1000) + (direction * 100) + reason_code;
     
     // 2. Gửi qua Fuzzilli
-    dprintf(103, "%05d\n", feedback);
+    dprintf(103, "[TIER]%05d\n", feedback);
     // ===================
 
     PrintF("[manually marking ");

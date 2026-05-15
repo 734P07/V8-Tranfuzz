@@ -394,7 +394,7 @@ Tagged<Object> OptimizeFunctionOnNextCall(RuntimeArguments& args,
     function->UpdateCode(code);
   }
 
-  TraceManualRecompile(*function, target_kind, concurrency_mode);
+  TraceManualRecompile(isolate, *function, target_kind, concurrency_mode);
   JSFunction::EnsureFeedbackVector(isolate, function, &is_compiled_scope);
   if (function->GetActiveTier(isolate) != target_kind) {
     function->RequestOptimization(isolate, target_kind, concurrency_mode);
